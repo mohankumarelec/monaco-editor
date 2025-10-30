@@ -6,6 +6,9 @@ jobs:
   build:
     name: CI
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -14,6 +17,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@${{ github.repository_owner }}"
 
       - name: Cache node modules
         id: cacheNodeModules
@@ -44,13 +49,24 @@ jobs:
         if: ${{ steps.cacheNodeModules.outputs.cache-hit != 'true' }}
         run: npm ci --prefix webpack-plugin
 
-      # CI steps temporarily disabled (enable by end of august 2025)
-      # # <building-from-source>
+      # Build and publish monaco-editor-core
       - name: Setup, Build & Test monaco-editor-core
-        run: yarn ts-node ./scripts/ci/build-monaco-editor-core-pkg nightly
+        run: yarn ts-node ./scripts/ci/build-monaco-editor-core-pkg stable
         env:
           VSCODE_REF: "main"
-          PRERELEASE_VERSION: "dev-${today}"
+
+      - name: Configure npm for GitHub Packages (monaco-editor-core)
+        run: |
+          echo "@${GITHUB_REPOSITORY_OWNER}:registry=https://npm.pkg.github.com" >> ~/.npmrc
+          echo "//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}" >> ~/.npmrc
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish monaco-editor-core to GitHub Packages
+        run: npm publish --tag latest
+        working-directory: ./dependencies/vscode/out-monaco-editor-core
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Link monaco-editor-core
         run: npm link
@@ -58,39 +74,23 @@ jobs:
 
       - name: Link monaco-editor-core
         run: npm link monaco-editor-core
-      # # </building-from-source>
 
-      # TODO: prettier formatting
-      # - name: Check prettier
-      #   run: npm run prettier-check
+      # Build and publish monaco-editor
+      - name: Setup, Build & Test monaco-editor
+        run: yarn ts-node ./scripts/ci/build-monaco-editor-pkg stable
 
-      - name: Build
-        run: npm run build
+      - name: Publish monaco-editor to GitHub Packages
+        run: npm publish --tag latest
+        working-directory: ./out/monaco-editor
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Run unit tests
-      #   run: npm test
-
+      # Build and publish monaco-editor-webpack-plugin
       - name: Compile webpack plugin
         run: npm run compile --prefix webpack-plugin
 
-      # - name: Package using webpack plugin
-      #   run: npm run package-for-smoketest
-
-      #      - name: Package using parcel
-      #        run: npm run package-for-smoketest-parcel --prefix test/smoke/parcel
-      # Disabled for now, as the parcel bundler cannot deal with VS Code process variable
-
-      # - name: Run smoke test
-      #   run: npm run smoketest
-
-      # - name: Install website node modules
-      #   working-directory: website
-      #   run: yarn install --frozen-lockfile
-
-      # - name: Build website
-      #   working-directory: website
-      #   run: yarn run build
-
-      # - name: Test website
-      #   working-directory: website
-      #   run: yarn test
+      - name: Publish monaco-editor-webpack-plugin to GitHub Packages
+        run: npm publish --tag latest
+        working-directory: ./webpack-plugin
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
