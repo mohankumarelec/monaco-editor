@@ -31,6 +31,7 @@ You will get:
 ## Localization
 
 To load the editor in a specific language, make sure that the corresponding nls script file is loaded before the main monaco editor script. For example, to load the editor in German, include the following script tag:
+
 ```html
 <script src="path/to/monaco-editor/esm/nls.messages.de.js"></script>
 ```
@@ -121,3 +122,14 @@ This project has adopted the [Microsoft Open Source Code of Conduct](https://ope
 ## License
 
 Licensed under the [MIT](https://github.com/microsoft/monaco-editor/blob/main/LICENSE.txt) License.
+
+## Local Build
+
+```
+export NODE_OPTIONS="--max-old-space-size=4096"
+git clean -xfd
+npm ci
+npm run build
+cd out/monaco-editor
+npm pack
+```
